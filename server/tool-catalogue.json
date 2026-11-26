@@ -1,0 +1,18 @@
+[
+  { "name": "list_tree", "description": "Recursively list workspace files", "params": { "path": "optional relative directory", "max_depth": "0-5, default 3" } },
+  { "name": "read_file", "description": "Read text file content with line numbers (supports offset/limit for large files)", "params": { "path": "relative file path", "offset": "optional start line (1-based)", "limit": "optional max lines (default 300)" } },
+  { "name": "read_file_lines", "description": "Read selected lines from a file", "params": { "path": "relative file path", "start_line": "line number", "end_line": "line number" } },
+  { "name": "read_files", "description": "Read multiple relevant source/config files", "params": { "paths": "array of relative file paths, max 50" } },
+  { "name": "search_files", "description": "Search filenames and file contents", "params": { "pattern": "glob pattern", "query": "optional literal text", "content_pattern": "optional regex", "path": "optional relative directory" } },
+  { "name": "write_file", "description": "Create or overwrite a text file", "params": { "path": "relative file path", "content": "complete file content" } },
+  { "name": "create_file", "description": "Create a new text file; fails if it exists (pass overwrite: true to force)", "params": { "path": "relative file path", "content": "file content", "overwrite": "optional boolean" } },
+  { "name": "edit_file", "description": "Replace exact text in a file (supports multi-line and Windows CRLF)", "params": { "path": "relative file path", "old_text": "exact existing text", "new_text": "replacement text", "replace_all": "optional boolean" } },
+  { "name": "apply_patch", "description": "Apply exact-match edits to one file atomically", "params": { "path": "relative file path", "edits": "array of {old_text,new_text}" } },
+  { "name": "create_dir", "description": "Create a directory", "params": { "path": "relative directory path" } },
+  { "name": "delete_file", "description": "Delete a file or directory (supports recursive: true)", "params": { "path": "relative path", "recursive": "optional boolean for directories" } },
+  { "name": "get_file_info", "description": "Get file metadata", "params": { "path": "relative path" } },
+  { "name": "open_app", "description": "Launch/open a Windows application, document, file, or URL (e.g. notepad, calc, code, output.mp3)", "params": { "app": "app name, executable, or file path" } },
+  { "name": "close_app", "description": "Close/terminate a running Windows application by process name (e.g. notepad, calc)", "params": { "app": "process name" } },
+  { "name": "list_apps", "description": "List currently running Windows applications and active windows", "params": {} },
+  { "name": "run_command", "description": "Execute a shell/terminal command or script in Windows and get stdout/stderr", "params": { "command": "shell command to run (e.g. python script.py, pip install x)", "timeout": "optional timeout in ms (default 30000)" } }
+]

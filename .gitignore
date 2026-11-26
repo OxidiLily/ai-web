@@ -1,0 +1,45 @@
+# ── Dependencies ──
+node_modules/
+package-lock.json.bak
+
+# ── Runtime / user-specific state (jangan di-commit) ──
+server/workspace.json
+.log
+logs/
+
+# ── Temp & backup files ──
+.tmp
+.bak
+.swp
+~
+_.js
+_dump_out.txt
+dump_out.txt
+pslist.ps1
+start.bat.bak
+
+# ── OS junk ──
+Thumbs.db
+desktop.ini
+.DS_Store
+
+# ── Editor / IDE ──
+.vscode/
+.idea/
+.iml
+.suo
+.user
+.sublime-
+
+# ── Env & secrets ──
+.env
+.env.
+.pem
+*.key
+
+# ── Build artifacts (kalau ada) ──
+dist/
+build/
+.next/
+.cache/
+coverage/
