@@ -1,14 +1,19 @@
 {
   "manifest_version": 3,
-  "name": "WebBridge - AI File Connector (DeepSeek)",
-  "version": "1.1.0",
-  "description": "Connect DeepSeek chat to your local files via a local bridge server",
+  "name": "WebBridge - AI File Connector (Claude, Qwen & DeepSeek)",
+  "version": "1.3.1",
+  "description": "Connect Claude, Qwen, and DeepSeek chat to your local files via a local bridge server",
   "permissions": [
     "storage"
   ],
   "host_permissions": [
+    "https://claude.ai/*",
+    "https://chat.qwen.ai/*",
+    "https://chat.qwenlm.ai/*",
+    "https://tongyi.aliyun.com/*",
     "https://chat.deepseek.com/*",
-    "http://127.0.0.1/*"
+    "http://127.0.0.1/*",
+    "http://localhost/*"
   ],
   "background": {
     "service_worker": "background.js"
@@ -19,6 +24,10 @@
         "tool-catalogue.json"
       ],
       "matches": [
+        "https://claude.ai/*",
+        "https://chat.qwen.ai/*",
+        "https://chat.qwenlm.ai/*",
+        "https://tongyi.aliyun.com/*",
         "https://chat.deepseek.com/*"
       ]
     }
@@ -26,6 +35,10 @@
   "content_scripts": [
     {
       "matches": [
+        "https://claude.ai/*",
+        "https://chat.qwen.ai/*",
+        "https://chat.qwenlm.ai/*",
+        "https://tongyi.aliyun.com/*",
         "https://chat.deepseek.com/*"
       ],
       "js": [

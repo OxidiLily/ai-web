@@ -6,6 +6,11 @@ const msg = document.getElementById('msg');
 const unresChk = document.getElementById('unrestricted-chk');
 
 function check() {
+  if (typeof chrome === 'undefined' || !chrome.runtime?.sendMessage) {
+    dot.className = 'dot off';
+    status.textContent = 'Disconnected (no extension)';
+    return;
+  }
   chrome.runtime.sendMessage({ type: 'wb_getStatus' }, (r) => {
     if (chrome.runtime.lastError || !r) {
       dot.className = 'dot off';
@@ -31,6 +36,7 @@ setInterval(check, 1000);
 if (unresChk) {
   unresChk.onchange = () => {
     const enabled = unresChk.checked;
+    if (typeof chrome === 'undefined' || !chrome.runtime?.sendMessage) return;
     chrome.runtime.sendMessage({ type: 'wb_call', command: 'set_unrestricted', params: { enabled } }, (r) => {
       if (chrome.runtime.lastError || !r?.success) {
         msg.textContent = '❌ Gagal ubah mode: ' + (chrome.runtime.lastError?.message || r?.error);
@@ -44,11 +50,15 @@ if (unresChk) {
   };
 }
 
-chrome.storage.local.get(['serverUrl', 'workspacePath'], (d) => {
-  urlInput.value = d.serverUrl || 'ws://127.0.0.1:9800';
-  if (d.workspacePath) wsInput.value = d.workspacePath;
-  check();
-});
+if (typeof chrome !== 'undefined' && chrome.storage?.local) {
+  chrome.storage.local.get(['serverUrl', 'workspacePath'], (d) => {
+    urlInput.value = d.serverUrl || 'ws://127.0.0.1:9800';
+    if (d.workspacePath) wsInput.value = d.workspacePath;
+    check();
+  });
+} else {
+  urlInput.value = 'ws://127.0.0.1:9800';
+}
 
 document.getElementById('setws').onclick = () => {
   const p = wsInput.value.trim().replace(/^["']+|["']+$/g, '').trim();

@@ -8,14 +8,19 @@ server/workspace.json
 logs/
 
 # ── Temp & backup files ──
-.tmp
-.bak
-.swp
-~
-_.js
+*.tmp
+*.bak
+*.swp
+*~
+_*
+_*.js
 _dump_out.txt
 dump_out.txt
 pslist.ps1
+*.ps1
+probe.txt
+test-*.html
+test_*.html
 start.bat.bak
 
 # ── OS junk ──

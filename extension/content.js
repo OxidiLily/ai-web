@@ -5,77 +5,17 @@
 
   const visible = el => !!el && el.getClientRects().length > 0 && getComputedStyle(el).visibility !== 'hidden';
 
+  // DeepSeek: the send button turns into a "stop" button (square icon) while generating
+  const dsStopBtn = () => {
+    const btn = document.querySelector('.ds-button--primary') || document.querySelector('button[aria-label*="Stop"]') || document.querySelector('button[aria-label*="停止"]');
+    const svg = btn && btn.querySelector('svg');
+    if (!svg) return null;
+    if (svg.querySelector('rect')) return btn;
+    const p = svg.querySelector('path');
+    return p && /^M[234]/.test(p.getAttribute('d') || '') ? btn : null;
+  };
+
   const PROVIDERS = {
-    'chatgpt.com': {
-      name: 'ChatGPT',
-      input: () => document.querySelector('#prompt-textarea') || document.querySelector('[contenteditable="true"]'),
-      send: () => document.querySelector('button[data-testid="send-button"]')
-        || document.querySelector('button[data-testid="fruitjuice-send-button"]')
-        || document.querySelector('button[aria-label*="Send"]')
-        || document.querySelector('button[aria-label*="Kirim"]')
-        || document.querySelector('form button[type="submit"]')
-        || (() => {
-          const btns = [...document.querySelectorAll('form button')];
-          return btns.find(b => !b.disabled && (b.querySelector('svg') || !b.textContent.trim()));
-        })(),
-      assistantSelector: '[data-message-author-role="assistant"]',
-      userSelector: '[data-message-author-role="user"]',
-      getTurnContainer: el => el.closest('[data-testid^="conversation-turn"]') || el.closest('article') || el.closest('[data-message-author-role]') || el,
-      getText: el => {
-        const md = el.querySelector('.markdown') || el.querySelector('div.prose') || el;
-        return md.textContent || '';
-      },
-      isGenerating: () => visible(document.querySelector('[data-testid="stop-button"]') || document.querySelector('button[aria-label*="Stop"]') || document.querySelector('button[aria-label*="Hentikan"]')),
-    },
-    'chat.openai.com': null,
-    'claude.ai': {
-      name: 'Claude',
-      input: () => {
-        return document.querySelector('div.ProseMirror[contenteditable="true"]')
-          || document.querySelector('div[contenteditable="true"]')
-          || (() => {
-            const eds = document.querySelectorAll('div[contenteditable="true"]');
-            for (const ed of eds) {
-              if (ed.closest('fieldset') || ed.closest('form') || ed.closest('footer') || ed.closest('[class*="composer"]')) return ed;
-            }
-            return eds[eds.length - 1] || null;
-          })();
-      },
-      send: () =>
-        document.querySelector('button[aria-label="Send Message"]')
-        || document.querySelector('button[aria-label="Kirim Pesan"]')
-        || document.querySelector('button[aria-label*="Send"]')
-        || document.querySelector('button[data-testid="send-message"]')
-        || document.querySelector('button[data-testid="send-button"]')
-        || (() => { const b = document.querySelectorAll('fieldset button, form button'); return b[b.length - 1]; })(),
-      assistantSelector: '[data-testid="assistant-message"], .font-claude-message, [data-is-streaming], div[class*="standard-markdown"]',
-      userSelector: '[data-testid="user-message"], .font-user-message',
-      getTurnContainer: el => el.closest('[data-testid^="chat-message"]') || el.parentElement || el,
-      getText: el => (el.querySelector('.standard-markdown') || el).textContent || '',
-      isGenerating: () => visible(
-        document.querySelector('[data-is-streaming="true"]')
-        || document.querySelector('button[aria-label="Stop Response"]')
-        || document.querySelector('button[aria-label="Hentikan Respons"]')
-        || document.querySelector('button[aria-label*="Stop"]')
-      ),
-    },
-    'gemini.google.com': {
-      name: 'Gemini',
-      input: () => document.querySelector('rich-textarea [contenteditable="true"]') || document.querySelector('.ql-editor') || document.querySelector('[contenteditable="true"]'),
-      send: () => document.querySelector('button.send-button')
-        || document.querySelector('button[aria-label*="Send"]')
-        || document.querySelector('button[aria-label*="Kirim"]')
-        || document.querySelector('div[role="button"][aria-label*="Send"]')
-        || document.querySelector('.send-button-container button'),
-      assistantSelector: 'model-response',
-      userSelector: 'user-query',
-      getTurnContainer: el => el.closest('model-response') || el.closest('user-query') || el,
-      getText: el => {
-        const content = el.querySelector('message-content') || el.querySelector('.response-container') || el.querySelector('.model-response-text') || el;
-        return content.textContent || '';
-      },
-      isGenerating: () => visible(document.querySelector('button[aria-label*="Stop"]') || document.querySelector('button[aria-label*="Berhenti"]') || document.querySelector('.stop-button')),
-    },
     'chat.deepseek.com': {
       name: 'DeepSeek',
       input: () => {
@@ -107,17 +47,47 @@
         const mds = [...el.querySelectorAll('.ds-markdown')].filter(m => !m.closest('.ds-think-content'));
         return mds.map(m => m.textContent).join('\n');
       },
+      stop: () => { const b = dsStopBtn(); if (b) { b.click(); return true; } return false; },
       isGenerating: () => {
-        const l = document.querySelector('.ds-loading');
-        if (visible(l)) return true;
-        const btn = document.querySelector('.ds-button--primary') || document.querySelector('button[aria-label*="Stop"]') || document.querySelector('button[aria-label*="停止"]');
-        if (!btn) return false;
-        const svg = btn.querySelector('svg');
-        if (!svg) return false;
-        if (svg.querySelector('rect')) return true;
-        const p = svg.querySelector('path');
-        return p ? /^M[234]/.test(p.getAttribute('d') || '') : false;
+        if (visible(document.querySelector('.ds-loading'))) return true;
+        return Boolean(dsStopBtn());
       }
+    },
+    'claude.ai': {
+      name: 'Claude',
+      input: () => {
+        return document.querySelector('div.ProseMirror[contenteditable="true"]')
+          || document.querySelector('div[contenteditable="true"]')
+          || (() => {
+            const eds = document.querySelectorAll('div[contenteditable="true"]');
+            for (const ed of eds) {
+              if (ed.closest('fieldset') || ed.closest('form') || ed.closest('footer') || ed.closest('[class*="composer"]')) return ed;
+            }
+            return eds[eds.length - 1] || null;
+          })();
+      },
+      send: () =>
+        document.querySelector('button[aria-label="Send Message"]')
+        || document.querySelector('button[aria-label="Kirim Pesan"]')
+        || document.querySelector('button[aria-label*="Send"]')
+        || document.querySelector('button[data-testid="send-message"]')
+        || document.querySelector('button[data-testid="send-button"]')
+        || (() => { const b = document.querySelectorAll('fieldset button, form button'); return b[b.length - 1]; })(),
+      assistantSelector: '[data-testid="assistant-message"], .font-claude-message, [data-is-streaming], div[class*="standard-markdown"]',
+      userSelector: '[data-testid="user-message"], .font-user-message',
+      getTurnContainer: el => el.closest('[data-testid^="chat-message"]') || el.parentElement || el,
+      getText: el => (el.querySelector('.standard-markdown') || el).textContent || '',
+      stop: () => {
+        const b = document.querySelector('button[aria-label="Stop Response"]') || document.querySelector('button[aria-label="Hentikan Respons"]') || document.querySelector('button[aria-label*="Stop"]');
+        if (b) { b.click(); return true; }
+        return false;
+      },
+      isGenerating: () => visible(
+        document.querySelector('[data-is-streaming="true"]')
+        || document.querySelector('button[aria-label="Stop Response"]')
+        || document.querySelector('button[aria-label="Hentikan Respons"]')
+        || document.querySelector('button[aria-label*="Stop"]')
+      ),
     },
     'chat.qwen.ai': {
       name: 'Qwen',
@@ -142,6 +112,11 @@
         const mc = el.querySelector('.message-content') || el.querySelector('.markdown') || el.querySelector('[class*="content"]') || el;
         return mc.textContent || '';
       },
+      stop: () => {
+        const b = document.querySelector('button[aria-label*="Stop"]') || document.querySelector('button[aria-label*="停止"]') || document.querySelector('button[aria-label*="Berhenti"]');
+        if (b) { b.click(); return true; }
+        return false;
+      },
       isGenerating: () => visible(
         document.querySelector('button[aria-label*="Stop"]')
         || document.querySelector('button[aria-label*="停止"]')
@@ -149,19 +124,8 @@
         || document.querySelector('[class*="loading"]')
         || document.querySelector('[class*="generating"]')
       ),
-    },
-    'grok.com': {
-      name: 'Grok',
-      input: () => document.querySelector('textarea'),
-      send: () => document.querySelector('button[aria-label="Send"]') || document.querySelector('button[type="submit"]'),
-      assistantSelector: '[class*="message-bubble"]',
-      userSelector: '[class*="items-end"]',
-      getTurnContainer: el => el,
-      getText: el => el.textContent || '',
-      isGenerating: () => visible(document.querySelector('button[aria-label="Stop"]')),
     }
   };
-  PROVIDERS['chat.openai.com'] = PROVIDERS['chatgpt.com'];
   PROVIDERS['chat.qwenlm.ai'] = PROVIDERS['chat.qwen.ai'];
   PROVIDERS['tongyi.aliyun.com'] = PROVIDERS['chat.qwen.ai'];
 
@@ -174,12 +138,177 @@
   let previousAssistantText = '';
   let lastSendAt = 0;
   let rateLimitBlockedUntil = 0;
+  // Stop / countdown state
+  let runController = null;      // AbortController of the current agent run
+  let activeWait = null;         // { label, until } of a blocking wait (throttle / rate-limit backoff)
+  let countdownShown = false;
+  let lastRenderKey = '';
+  let lastRunAborted = false;
+  let stopping = false;
   const SEND_INTERVAL_MS = P.name === 'DeepSeek' ? 9000 : 2500;
   const RATE_LIMIT_BACKOFF = [45000, 120000];
   const TP = '⚙WB⚙';
 
   const log = (...args) => console.log('[WB]', ...args);
   const sleep = ms => new Promise(r => setTimeout(r, ms));
+
+  // ── Abort / Stop ──
+  const newAbort = () => { const e = new Error('Dihentikan oleh user'); e.name = 'AbortRun'; return e; };
+  const isAbort = e => !!e && e.name === 'AbortRun';
+  const aborted = () => !!(runController && runController.signal.aborted);
+  function checkAbort() { if (aborted()) throw newAbort(); }
+
+  // sleep that rejects as soon as the user presses Stop
+  function sleepA(ms) {
+    const signal = runController && runController.signal;
+    if (!signal) return sleep(ms);
+    return new Promise((resolve, reject) => {
+      if (signal.aborted) return reject(newAbort());
+      const onAbort = () => { clearTimeout(t); reject(newAbort()); };
+      const t = setTimeout(() => { signal.removeEventListener('abort', onAbort); resolve(); }, ms);
+      signal.addEventListener('abort', onAbort, { once: true });
+    });
+  }
+
+  function setRunning(v) {
+    v = Boolean(v);
+    if (v && !agentRunning) runController = new AbortController();
+    if (!v) { runController = null; activeWait = null; }
+    agentRunning = v;
+    updateFAB();
+  }
+
+  // Tool call that is rejected immediately when the user presses Stop
+  function runTool(cmd, params = {}) {
+    const signal = runController && runController.signal;
+    if (!signal) return callTool(cmd, params);
+    if (signal.aborted) return Promise.reject(newAbort());
+    return new Promise((ok, no) => {
+      const onAbort = () => no(newAbort());
+      signal.addEventListener('abort', onAbort, { once: true });
+      callTool(cmd, params).then(
+        r => { signal.removeEventListener('abort', onAbort); ok(r); },
+        e => { signal.removeEventListener('abort', onAbort); no(e); }
+      );
+    });
+  }
+
+  async function stopAgent() {
+    if (!agentRunning || stopping) return;
+    stopping = true;
+    lastRunAborted = true;
+    syncStopBtn();
+    addActivityLog('info', '⏹ Dihentikan', 'Agent dihentikan oleh user');
+    if (runController) runController.abort();              // 1) cancel waits + pending tool awaits
+    callTool('cancel_running').catch(() => {});             // 2) kill run_command still running on the bridge
+    try { if (P.isGenerating() && P.stop) P.stop(); } catch (_) {} // 3) stop the AI's generation on the site
+
+    // 4) let the running flows unwind
+    const t0 = Date.now();
+    while (agentRunning && Date.now() - t0 < 5000) await sleep(50);
+    if (agentRunning) setRunning(false);
+
+    // 5) wait until the site really stopped generating (retry the click once)
+    const t1 = Date.now();
+    let retried = false;
+    while (P.isGenerating() && Date.now() - t1 < 5000) {
+      if (!retried && Date.now() - t1 > 800) { try { if (P.stop) P.stop(); } catch (_) {} retried = true; }
+      await sleep(50);
+    }
+    await sleep(150);
+
+    // 6) mark the current chat state as handled, so the watch loop does not
+    //    resume a half-finished tool call from the interrupted answer
+    previousAssistantText = getLastAssistantText();
+    lastMsgCount = totalMsgCount();
+    activeWait = null;
+    lastRunAborted = false;
+    stopping = false;
+    syncStopBtn();
+    updateFAB();
+    showStatus('idle', 'Dihentikan • silakan beri perintah baru');
+    showNotif('⏹ Agent dihentikan. Silakan ketik perintah baru.');
+  }
+
+  function syncStopBtn() {
+    const b = document.getElementById('wb-stop-btn');
+    if (!b) return;
+    b.hidden = !(agentRunning && isContextValid());
+    b.disabled = stopping;
+    b.textContent = stopping ? '⏳ Menghentikan…' : '⏹ Stop';
+  }
+
+  // ── Realtime countdown ──
+  // Waits are driven by a target timestamp (never by counting ticks), and the UI is
+  // re-rendered every 50 ms from (until - Date.now()), so the display is always exact.
+  function fmtRemain(ms) {
+    ms = Math.max(0, ms);
+    if (ms < 10000) return (Math.ceil(ms / 100) / 10).toFixed(1) + 's';
+    const t = Math.ceil(ms / 1000);
+    const m = Math.floor(t / 60), sec = t % 60;
+    return m > 0 ? m + ':' + String(sec).padStart(2, '0') : t + 's';
+  }
+
+  const countdownActive = () => Boolean((activeWait && activeWait.until > Date.now()) || rateLimitBlockedUntil > Date.now());
+
+  function countdownWait(ms, label) {
+    return new Promise((resolve, reject) => {
+      const until = Date.now() + ms;
+      const signal = runController && runController.signal;
+      activeWait = { label, until };
+      let timer = null;
+      const finish = err => {
+        clearInterval(timer);
+        if (signal) signal.removeEventListener('abort', onAbort);
+        if (activeWait && activeWait.until === until) activeWait = null;
+        if (err) return reject(err);
+        if (agentRunning) showStatus('running', 'Memproses…');
+        resolve();
+      };
+      const onAbort = () => finish(newAbort());
+      timer = setInterval(() => { if (Date.now() >= until) finish(); }, 50);
+      if (signal) {
+        if (signal.aborted) return onAbort();
+        signal.addEventListener('abort', onAbort, { once: true });
+      }
+    });
+  }
+
+  function idleLabel() {
+    if (!bridgeConnected) return 'Terputus';
+    return 'Siap • ' + (unrestricted ? '🌐 Global Access' : (workspace ? (workspace.split(/[\\/]/).pop() || workspace) : 'Siap'));
+  }
+
+  function renderCountdownUI() {
+    const label = document.getElementById('wb-status-text');
+    const cd = document.getElementById('wb-countdown');
+    const dot = document.querySelector('#wb-status-bar .wb-dot-pulse');
+    if (!label || !cd || !dot) return;
+    const now = Date.now();
+    let src = null;
+    if (activeWait && activeWait.until > now) src = { label: activeWait.label, until: activeWait.until, state: 'running' };
+    else if (rateLimitBlockedUntil > now) src = { label: 'Cooldown rate limit', until: rateLimitBlockedUntil, state: 'error' };
+
+    if (src) {
+      countdownShown = true;
+      const txt = fmtRemain(src.until - now);
+      const key = src.state + '|' + src.label + '|' + txt;
+      if (key !== lastRenderKey) {
+        lastRenderKey = key;
+        dot.className = 'wb-dot-pulse ' + (src.state === 'error' ? 'wb-dot-error' : 'wb-dot-running');
+        label.textContent = src.label;
+        cd.textContent = txt;
+        cd.hidden = false;
+      }
+      return;
+    }
+    if (countdownShown) {   // a countdown just finished (e.g. the 10-minute cooldown expired)
+      countdownShown = false;
+      lastRenderKey = '';
+      if (agentRunning) showStatus('running', 'Memproses…');
+      else showStatus(bridgeConnected ? 'idle' : 'error', idleLabel());
+    }
+  }
 
   // ── Context Validity Helpers ──
   function isContextValid() {
@@ -273,22 +402,9 @@
   }
 
   async function waitWithCountdown(totalMs, label) {
-    const start = Date.now();
-    const total = Math.round(totalMs / 1000);
-    log('Waiting ' + total + 's (' + label + ')');
-    showStatus('running', label + ': tunggu ' + total + 's');
-    showNotif('⏳ ' + label + '. Menunggu ' + total + ' detik, lalu lanjut otomatis...', 'info');
-    let lastShown = total;
-    while (Date.now() - start < totalMs) {
-      await sleep(1000);
-      const remain = Math.max(0, Math.round((totalMs - (Date.now() - start)) / 1000));
-      if (remain !== lastShown && remain > 0 && remain % 5 === 0) {
-        lastShown = remain;
-        showStatus('running', label + ': tunggu ' + remain + 's');
-        showNotif('⏳ ' + label + '. Sisa ' + remain + ' detik...', 'info');
-      }
-    }
-    showStatus('running', label + ' selesai, melanjutkan...');
+    log('Waiting ' + Math.round(totalMs / 1000) + 's (' + label + ')');
+    showNotif('⏳ ' + label + '. Lanjut otomatis setelah hitung mundur selesai.', 'info');
+    await countdownWait(totalMs, label);
     log('Wait done, resuming');
   }
 
@@ -366,7 +482,7 @@
   function applyCollapseCard(container, type, title, subtitle, rawContent, introText = '') {
     updateThemeClass();
 
-    // Hide the original container gracefully to preserve layout flow (fixes ChatGPT visual bugs)
+    // Hide the original container gracefully to preserve layout flow
     // DO NOT use display: none, as it breaks React layout calculations and height measurements
     if (!container.dataset.wbHidden) {
       container.dataset.wbHidden = '1';
@@ -471,36 +587,41 @@
     if (!container || !text || container === document.body || container === document.documentElement) return;
 
     if (text.includes('###WB_TOOL###')) {
-      // AI tool call messages → hide completely (agent loop handles execution)
-      container.classList.add('wb-hidden-turn');
-      container.setAttribute('aria-hidden', 'true');
-      container.style.display = 'none';
-      removeCard(container);
+      container.classList.remove('wb-hidden-turn');
+      container.removeAttribute('aria-hidden');
+      const call = parse(text);
+      const command = call?.command || 'Tool';
+      const detail = text.slice(text.indexOf('###WB_TOOL###')).trim();
+      const intro = text.slice(0, text.indexOf('###WB_TOOL###')).trim();
+      applyCollapseCard(container, 'tool-call', command, call?.params?.path || '', detail, intro);
       return;
     }
 
     if (text.includes(TP)) {
-      // Tool result messages → hide completely (user sees results via activity log)
-      container.classList.add('wb-hidden-turn');
-      container.setAttribute('aria-hidden', 'true');
-      container.style.display = 'none';
-      removeCard(container);
+      container.classList.remove('wb-hidden-turn');
+      container.removeAttribute('aria-hidden');
+      const match = text.match(/⚙WB⚙ (?:ERROR )?"([^"]+)"/);
+      const command = match?.[1] || 'Tool';
+      const error = text.includes(`${TP} ERROR`);
+      const targetMatch = text.match(/\[([^\]]+)\]/);
+      const subtitle = targetMatch ? targetMatch[1] : (error ? 'Gagal' : 'Sukses');
+      applyCollapseCard(container, error ? 'tool-error' : 'tool-result', command, subtitle, text.slice(text.indexOf(TP) + TP.length).trim());
       return;
     }
 
-    if (text.includes('[ENVIRONMENT NOTICE') || text.includes('[SYSTEM: WebBridge')) {
-      // System prompt messages (injected by interceptor) → hide completely
-      container.classList.add('wb-hidden-turn');
-      container.setAttribute('aria-hidden', 'true');
-      container.style.display = 'none';
-      removeCard(container);
+    if (text.includes('[SYSTEM: WebBridge') || text.includes('[ENVIRONMENT NOTICE')) {
+      container.classList.remove('wb-hidden-turn');
+      container.removeAttribute('aria-hidden');
+      const marker = text.includes('[SYSTEM: WebBridge') ? '[SYSTEM: WebBridge' : '[ENVIRONMENT NOTICE';
+      const userText = text.slice(0, text.indexOf(marker)).trim();
+      const sysDetail = text.slice(text.indexOf(marker)).trim();
+      applyCollapseCard(container, 'handshake', 'WebBridge Connected', (unrestricted ? 'Global' : (workspace?.split(/[\\/]/).pop() || 'Local')), sysDetail, userText);
       return;
     }
 
     if (text.includes('You are connected to WebBridge') || text.includes('WebBridge ready')) {
       container.classList.add('wb-hidden-turn');
       container.setAttribute('aria-hidden', 'true');
-      container.style.display = 'none';
       removeCard(container);
       return;
     }
@@ -580,10 +701,11 @@
   async function typeAndSend(text) {
     const gap = SEND_INTERVAL_MS - (Date.now() - lastSendAt);
     if (gap > 0) {
-      log('Throttle: menunggu ' + gap + 'ms sebelum kirim');
-      showStatus('running', 'Jeda aman ' + Math.ceil(gap / 1000) + 's sebelum kirim...');
-      await sleep(gap + Math.floor(Math.random() * 1200));
+      const wait = gap + Math.floor(Math.random() * 1200);
+      log('Throttle: menunggu ' + wait + 'ms sebelum kirim');
+      await countdownWait(wait, 'Jeda aman sebelum kirim');
     }
+    checkAbort();
     // Wait for previous generation to finish so input and send button are fully active
     let gWait = 0;
     while (P.isGenerating && P.isGenerating() && gWait < 8000) {
@@ -593,6 +715,7 @@
 
     const input = await waitForInput();
     if (!input) { log('No input found'); return false; }
+    checkAbort();
     input.focus();
     await sleep(20);
 
@@ -638,11 +761,23 @@
       }
     };
 
+    const clearTyped = () => {
+      if (!isCE) {
+        const setter = Object.getOwnPropertyDescriptor(window.HTMLTextAreaElement.prototype, 'value')?.set;
+        if (setter) setter.call(input, ''); else input.value = '';
+        input.dispatchEvent(new Event('input', { bubbles: true, composed: true }));
+      } else {
+        document.execCommand('selectAll', false, null);
+        document.execCommand('delete', false, null);
+      }
+    };
+
     setInputContent();
     lastSendAt = Date.now();
 
     // Try sending up to 3 times
     for (let attempt = 0; attempt < 3; attempt++) {
+      if (aborted()) { clearTyped(); throw newAbort(); }   // Stop pressed between typing and sending
       // 1. Try send button
       for (let i = 0; i < 8; i++) {
         const btn = P.send();
@@ -680,14 +815,7 @@
     }
 
     log('Send verification failed — clearing input to prevent stuck text');
-    if (!isCE) {
-      const setter = Object.getOwnPropertyDescriptor(window.HTMLTextAreaElement.prototype, 'value')?.set;
-      if (setter) setter.call(input, ''); else input.value = '';
-      input.dispatchEvent(new Event('input', { bubbles: true, composed: true }));
-    } else {
-      document.execCommand('selectAll', false, null);
-      document.execCommand('delete', false, null);
-    }
+    clearTyped();
 
     return false;
   }
@@ -697,6 +825,7 @@
     let waited = 0;
     const startLimit = P.name === 'DeepSeek' ? 120000 : 60000;
     while (waited < startLimit) {
+      if (aborted()) return false;
       const current = getLastAssistantText();
       if (P.isGenerating() || (current && current !== baseline)) break;
       if (waited > 0 && waited % 1000 === 0 && detectRateLimit()) {
@@ -713,6 +842,7 @@
     waited = 0;
     const needed = 2;
     while (waited < timeout) {
+      if (aborted()) return false;
       await sleep(150);
       waited += 150;
       const current = getLastAssistantText();
@@ -913,6 +1043,12 @@ RULES:
 
   // ── Core loop ──
   async function sendAndProcess(text, depth = 0) {
+    try { return await _sendAndProcess(text, depth); }
+    catch (e) { if (isAbort(e)) return false; throw e; }
+  }
+
+  async function _sendAndProcess(text, depth = 0) {
+    checkAbort();
     if (depth > 15) {
       log('Max tool depth reached');
       showNotif('⚠️ Batas maksimum tool call tercapai', 'error');
@@ -920,9 +1056,7 @@ RULES:
       return false;
     }
     if (Date.now() < rateLimitBlockedUntil) {
-      const mins = Math.ceil((rateLimitBlockedUntil - Date.now()) / 60000);
-      showNotif('🚫 Cooldown rate limit masih aktif. Tunggu ' + mins + ' menit.', 'error');
-      showStatus('error', 'Cooldown: ' + mins + ' menit');
+      showNotif('🚫 Cooldown rate limit masih aktif. Sisa ' + fmtRemain(rateLimitBlockedUntil - Date.now()) + '.', 'error');
       return false;
     }
     let baseline = getLastAssistantText();
@@ -940,12 +1074,14 @@ RULES:
         showNotif('❌ Send failed', 'error');
         return false;
       }
-      await sleep(1500);
+      await sleepA(1500);
       if (detectRateLimit()) {
         log('Rate limit terdeteksi setelah kirim (attempt ' + attempt + ')');
         continue;
       }
-      if (!await waitForNew(baseline)) {
+      const gotNew = await waitForNew(baseline);
+      checkAbort();
+      if (!gotNew) {
         if (detectRateLimit()) {
           log('Rate limit terdeteksi saat menunggu (attempt ' + attempt + ')');
           continue;
@@ -959,7 +1095,6 @@ RULES:
     if (!sentOk) {
       rateLimitBlockedUntil = Date.now() + 10 * 60 * 1000;
       showNotif('🚫 Masih terkena rate limit. Cooldown 10 menit agar tidak makin parah.', 'error');
-      showStatus('error', 'Rate limit - cooldown 10 menit');
       return false;
     }
     await sleep(30);
@@ -983,15 +1118,16 @@ RULES:
 
     let rt;
     try {
-      const r = await callTool(tc.command, tc.params);
+      const r = await runTool(tc.command, tc.params);
       addActivityLog('success', `✅ ${tc.command}`, targetPath ? `${targetPath} sukses` : 'Sukses');
       showStatus('running', `Lanjut: ${tc.command} sukses...`);
       rt = `${TP} "${tc.command}":\n${fmt(r)}\n\n[SYSTEM: Tool execution succeeded. If more files need to be created/modified, proceed immediately to the next tool call (e.g. create_file or write_file). Do NOT stop or present code in chat without saving it to disk.]`;
     } catch (e) {
+      if (isAbort(e)) throw e;
       if (isContextInvalidatedError(e)) {
         log('Extension context invalidated. Halting agent.');
         showReloadPrompt();
-        agentRunning = false;
+        setRunning(false);
         sessionStarted = false;
         updateFAB();
         return false;
@@ -1070,7 +1206,7 @@ RULES:
     showNotif(`✅ Terhubung ke WebBridge!\n📁 ${unrestricted ? '🌐 Global Access' : (workspace ? (workspace.split(/[\\/]/).pop() || workspace) : 'workspace')}`);
     await sleep(40);
 
-    agentRunning = true;
+    setRunning(true);
     updateFAB();
 
     // Cek apakah respon assistant terakhir sudah ada tool call yang belum dieksekusi
@@ -1083,21 +1219,23 @@ RULES:
       addActivityLog('running', `⚙️ ${existingTc.command}`, targetPath);
       showStatus('running', `${existingTc.command} ${targetPath}`.trim());
       try {
-        const result = await callTool(existingTc.command, existingTc.params);
+        const result = await runTool(existingTc.command, existingTc.params);
         addActivityLog('success', `✅ ${existingTc.command}`, targetPath ? `${targetPath} sukses` : 'Sukses');
         showStatus('running', `Lanjut: ${existingTc.command} sukses...`);
         success = await sendAndProcess(`${TP} "${existingTc.command}":\n${fmt(result)}\n\n[SYSTEM: Tool execution succeeded. If more files need to be created/modified, proceed immediately to the next tool call (e.g. create_file or write_file). Do NOT stop or present code in chat without saving it to disk.]`);
       } catch (e) {
         if (isContextInvalidatedError(e)) {
           showReloadPrompt();
-          agentRunning = false;
+          setRunning(false);
           sessionStarted = false;
           updateFAB();
           return;
         }
-        addActivityLog('error', `❌ ${existingTc.command}`, typeof e === 'string' ? e : (e.message || 'Gagal'));
-        showStatus('error', `${existingTc.command} gagal`);
-        success = await sendAndProcess(`${TP} ERROR "${existingTc.command}": ${e.message || e}`);
+        if (!isAbort(e)) {
+          addActivityLog('error', `❌ ${existingTc.command}`, typeof e === 'string' ? e : (e.message || 'Gagal'));
+          showStatus('error', `${existingTc.command} gagal`);
+          success = await sendAndProcess(`${TP} ERROR "${existingTc.command}": ${e.message || e}`);
+        }
       }
     } else {
       // Jalankan handshake pesan pertama
@@ -1105,15 +1243,15 @@ RULES:
     }
 
     if (!success) {
-      sessionStarted = false;
-      agentRunning = false;
+      if (!lastRunAborted) sessionStarted = false;
+      setRunning(false);
       updateFAB();
       return;
     }
 
     lastMsgCount = totalMsgCount();
     previousAssistantText = getLastAssistantText();
-    agentRunning = false;
+    setRunning(false);
     updateFAB();
     revealFinalResponse();
     showNotif(`🟢 WebBridge aktif di ${P.name}!`);
@@ -1129,7 +1267,7 @@ RULES:
         log('URL changed (SPA nav):', lastUrl);
         // Reset session state on SPA navigation
         sessionStarted = false;
-        agentRunning = false;
+        setRunning(false);
         updateFAB();
       }
     }, 700);
@@ -1140,7 +1278,7 @@ RULES:
         updateFAB();
         return;
       }
-      if (agentRunning) return;
+      if (agentRunning || stopping) return;
       const c = totalMsgCount();
       const assistantText = getLastAssistantText();
       const responseChanged = assistantText && assistantText !== previousAssistantText;
@@ -1149,7 +1287,7 @@ RULES:
       if (c < lastMsgCount) {
         log('New chat detected (count dropped), resetting session...');
         sessionStarted = false;
-        agentRunning = false;
+        setRunning(false);
         lastMsgCount = c;
         // Clean up all WB cards and IDs to prevent visual bugs
         document.querySelectorAll('.wb-card').forEach(el => el.remove());
@@ -1184,13 +1322,13 @@ RULES:
       if (c === lastMsgCount && !responseChanged && !P.isGenerating()) return;
       lastMsgCount = c;
 
-      agentRunning = true;
+      setRunning(true);
       updateFAB();
       const baseline = previousAssistantText;
       const gotResponse = await waitForNew(baseline);
       if (!gotResponse) {
         log('No completed assistant response after user message');
-        agentRunning = false;
+        setRunning(false);
         updateFAB();
         lastMsgCount = totalMsgCount();
         return;
@@ -1204,26 +1342,28 @@ RULES:
         addActivityLog('running', `⚙️ ${tc.command}`, targetPath);
         showStatus('running', `${tc.command} ${targetPath}`.trim());
         try {
-          const result = await callTool(tc.command, tc.params);
+          const result = await runTool(tc.command, tc.params);
           addActivityLog('success', `✅ ${tc.command}`, targetPath ? `${targetPath} sukses` : 'Sukses');
           showStatus('running', `Lanjut: ${tc.command} sukses...`);
           await sendAndProcess(`${TP} "${tc.command}":\n${fmt(result)}\n\n[SYSTEM: Tool execution succeeded. If more files need to be created/modified, proceed immediately to the next tool call (e.g. create_file or write_file). Do NOT stop or present code in chat without saving it to disk.]`);
         } catch (e) {
           if (isContextInvalidatedError(e)) {
             showReloadPrompt();
-            agentRunning = false;
+            setRunning(false);
             sessionStarted = false;
             updateFAB();
             return;
           }
-          addActivityLog('error', `❌ ${tc.command}`, typeof e === 'string' ? e : (e.message || 'Gagal'));
-          showStatus('error', `${tc.command} gagal`);
-          await sendAndProcess(`${TP} ERROR "${tc.command}": ${e.message || e}`);
+          if (!isAbort(e)) {
+            addActivityLog('error', `❌ ${tc.command}`, typeof e === 'string' ? e : (e.message || 'Gagal'));
+            showStatus('error', `${tc.command} gagal`);
+            await sendAndProcess(`${TP} ERROR "${tc.command}": ${e.message || e}`);
+          }
         }
       } else {
         revealFinalResponse();
       }
-      agentRunning = false;
+      setRunning(false);
       updateFAB();
       lastMsgCount = totalMsgCount();
       previousAssistantText = getLastAssistantText();
@@ -1242,10 +1382,14 @@ RULES:
   }
 
   function showStatus(state, text) {
+    if (countdownActive()) return;   // a live countdown owns the status bar
     const bar = document.getElementById('wb-status-bar');
     const dot = bar?.querySelector('.wb-dot-pulse');
     const label = document.getElementById('wb-status-text');
     if (!bar || !dot || !label) return;
+    countdownShown = false;
+    const cd = document.getElementById('wb-countdown');
+    if (cd) { cd.hidden = true; cd.textContent = ''; }
 
     dot.className = 'wb-dot-pulse';
     if (state === 'running') {
@@ -1283,8 +1427,15 @@ RULES:
     bar.innerHTML = `
       <span class="wb-dot-pulse"></span>
       <span id="wb-status-text">WebBridge: Siap</span>
+      <span id="wb-countdown" hidden></span>
+      <button id="wb-stop-btn" type="button" hidden title="Hentikan agent yang sedang berjalan">⏹ Stop</button>
     `;
     bar.onclick = toggleLogPanel;
+    bar.querySelector('#wb-stop-btn').addEventListener('click', e => {
+      e.stopPropagation();
+      e.preventDefault();
+      stopAgent();
+    });
     document.body.appendChild(bar);
 
     const panel = document.createElement('div');
@@ -1338,14 +1489,12 @@ RULES:
   }
 
   // ── Inline Prompt Interceptor ──
-  // Strategy: Let user's first message go through UNTOUCHED (preserves thread title).
-  // After AI responds WITHOUT a tool call, automatically send the system prompt
-  // as a follow-up message via typeAndSend (which works reliably on ALL platforms).
+  // Injects WebBridge tools directly into the user's first prompt without polluting thread title
   function setupUserSendInterceptor() {
-    let interceptActive = false;
+    let injecting = false;
 
-    function tryIntercept() {
-      if (sessionStarted || agentRunning || interceptActive) return;
+    function tryInject() {
+      if (injecting || sessionStarted || agentRunning || stopping) return;
       if (!bridgeConnected || (!workspace && !unrestricted)) return;
 
       const input = P.input();
@@ -1353,78 +1502,57 @@ RULES:
 
       const isCE = input.isContentEditable || input.getAttribute('contenteditable') === 'true';
       const text = (isCE ? (input.textContent || '') : (input.value || '')).trim();
-      if (!text || text.includes('[ENVIRONMENT NOTICE') || text.includes('###WB_TOOL###') || text.includes(TP)) return;
+      if (!text || text.includes('[SYSTEM: WebBridge') || text.includes('###WB_TOOL###') || text.includes(TP)) return;
 
-      interceptActive = true;
-      log('User sent first message, will inject system prompt after AI responds');
+      injecting = true;
+      sessionStarted = true;
+      updateFAB();
 
-      // Let the message send normally, then watch for AI's response
-      setTimeout(async () => {
+      const wsPath = workspace || 'C:\\';
+      const globalNotice = unrestricted
+        ? 'GLOBAL ACCESS MODE ACTIVE: You have full live execution access across all drives (C:, D:, E:, etc.) using absolute paths.'
+        : `WORKSPACE SANDBOX ACTIVE: Only files within ${wsPath} can be accessed.`;
+
+      const injectedPrompt = `${text}\n\n[SYSTEM: WebBridge File Connector Active]\n${globalNotice}\n${sysPrompt(tools, true)}`;
+
+      if (!isCE) {
+        const setter = Object.getOwnPropertyDescriptor(window.HTMLTextAreaElement.prototype, 'value')?.set
+          || Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value')?.set;
+        if (setter) setter.call(input, injectedPrompt);
+        else input.value = injectedPrompt;
+        input.dispatchEvent(new InputEvent('input', { bubbles: true, composed: true, inputType: 'insertText', data: injectedPrompt }));
+        input.dispatchEvent(new Event('input', { bubbles: true, composed: true }));
+        input.dispatchEvent(new Event('change', { bubbles: true, composed: true }));
+      } else {
+        input.focus();
+        document.execCommand('selectAll', false, null);
+        document.execCommand('delete', false, null);
         try {
-          // Wait for AI to respond
-          const baseline = getLastAssistantText();
-          const gotResponse = await waitForNew(baseline);
-          if (!gotResponse) {
-            interceptActive = false;
-            return;
-          }
+          const dt = new DataTransfer();
+          dt.setData('text/plain', injectedPrompt);
+          const evt = new ClipboardEvent('paste', { bubbles: true, cancelable: true, clipboardData: dt });
+          input.dispatchEvent(evt);
+        } catch (_) {}
 
-          const resp = getLastAssistantText();
-          const tc = parse(resp);
-
-          // If AI already called a tool (unlikely but possible), start agent loop
-          if (tc) {
-            sessionStarted = true;
-            agentRunning = true;
-            updateFAB();
-            try {
-              const result = await callTool(tc.command, tc.params);
-              const targetPath = tc.params?.path || tc.params?.file || '';
-              addActivityLog('success', `✅ ${tc.command}`, targetPath ? `${targetPath} sukses` : 'Sukses');
-              showStatus('running', `Lanjut: ${tc.command} sukses...`);
-              await sendAndProcess(`${TP} "${tc.command}":\n${fmt(result)}\n\n[SYSTEM: Tool execution succeeded. Continue with next tool call if needed.]`);
-            } catch (e) {
-              if (isContextInvalidatedError(e)) { showReloadPrompt(); return; }
-              await sendAndProcess(`${TP} ERROR "${tc.command}": ${e.message || e}`);
-            }
-            agentRunning = false;
-            updateFAB();
-            lastMsgCount = totalMsgCount();
-            previousAssistantText = getLastAssistantText();
-            revealFinalResponse();
-            interceptActive = false;
-            return;
-          }
-
-          // AI responded without tool call → send system prompt to activate tools
-          sessionStarted = true;
-          agentRunning = true;
-          updateFAB();
-          addActivityLog('info', 'WebBridge', 'Mengaktifkan tools...');
-          showStatus('running', 'Mengaktifkan WebBridge tools...');
-
-          const success = await sendAndProcess(sysPrompt(tools));
-
-          agentRunning = false;
-          updateFAB();
-          lastMsgCount = totalMsgCount();
-          previousAssistantText = getLastAssistantText();
-          if (success) {
-            revealFinalResponse();
-            showNotif(`🟢 WebBridge aktif di ${P.name}!`);
-          }
-        } catch (e) {
-          log('Intercept error:', e);
+        if (!input.textContent.includes('[SYSTEM: WebBridge')) {
+          try { document.execCommand('insertText', false, injectedPrompt); } catch (_) {}
         }
-        interceptActive = false;
-      }, 300);
+        if (!input.textContent.includes('[SYSTEM: WebBridge')) {
+          input.innerHTML = '<p>' + injectedPrompt.replace(/\n/g, '<br>') + '</p>';
+        }
+        input.dispatchEvent(new InputEvent('input', { bubbles: true, composed: true, inputType: 'insertText', data: injectedPrompt }));
+      }
+
+      log('Injected WebBridge system prompt into first turn');
+      showNotif(`🟢 WebBridge aktif di ${P.name}!`);
+      setTimeout(() => { injecting = false; }, 800);
     }
 
     document.addEventListener('keydown', (e) => {
       if (e.key === 'Enter' && !e.shiftKey && !e.ctrlKey && !e.altKey) {
         const input = P.input();
         if (input && (e.target === input || input.contains(e.target))) {
-          tryIntercept();
+          tryInject();
         }
       }
     }, true);
@@ -1432,11 +1560,12 @@ RULES:
     document.addEventListener('click', (e) => {
       const btn = P.send();
       if (btn && (e.target === btn || btn.contains(e.target))) {
-        tryIntercept();
+        tryInject();
       }
     }, true);
   }
   function updateFAB() {
+    syncStopBtn();
     const f = document.getElementById('wb-fab'); if (!f) return;
     if (!isContextValid()) {
       f.innerHTML = '⚠️';
@@ -1471,6 +1600,8 @@ RULES:
     createStatusBar();
     // Start periodic scan for collapse cards (NO MutationObserver)
     setInterval(scanMessages, 500);
+    // Realtime countdown renderer (cheap: only touches the DOM when the text changes)
+    setInterval(renderCountdownUI, 50);
 
     const s = await getStatus();
     bridgeConnected = s.connected;

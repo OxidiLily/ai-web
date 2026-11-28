@@ -5,7 +5,7 @@ const { fileURLToPath } = require('url');
 const { exec, spawn } = require('child_process');
 
 const PORT = parseInt(process.env.WTL_PORT || '9800');
-const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
+const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10 MB
 const MAX_DEPTH = 5;
 const VERSION = '1.1.0';
 
@@ -384,6 +384,17 @@ function replaceText(content, oldText, newText, replaceAll = false) {
 
 
 // ── Handlers ──
+// Child processes started by run_command that are still running (for the Stop button)
+const runningProcs = new Set();
+function killProcessTree(child) {
+  if (!child || !child.pid) return;
+  if (process.platform === 'win32') {
+    exec(`taskkill /PID ${child.pid} /T /F`, () => {});
+  } else {
+    try { process.kill(-child.pid, 'SIGKILL'); } catch (_) { try { child.kill('SIGKILL'); } catch (_) {} }
+  }
+}
+
 const handlers = {
   ping: (payload, id) => ({ id, type: 'result', payload: { pong: true, time: Date.now() } }),
 
@@ -766,18 +777,56 @@ const handlers = {
     const cwd = payload.cwd ? resolveIn(payload.cwd) : (workspace || process.cwd());
     const timeout = Math.min(parseInt(payload.timeout) || 30000, 120000);
     return new Promise((resolve) => {
-      exec(cmd, { cwd, timeout, maxBuffer: 10 * 1024 * 1024 }, (err, stdout, stderr) => {
+      // spawn (not exec): exec silently drops `detached`, and we need our own process
+      // group on POSIX so that Stop can kill the whole tree (sh -> child -> grandchild).
+      const MAX_BUF = 10 * 1024 * 1024;
+      const child = spawn(cmd, {
+        cwd,
+        shell: true,
+        detached: process.platform !== 'win32',
+        windowsHide: true
+      });
+      let stdout = '', stderr = '', timedOut = false, overflow = false, finished = false;
+      const append = (cur, chunk) => {
+        if (cur.length >= MAX_BUF) { overflow = true; killProcessTree(child); return cur; }
+        return cur + chunk.toString();
+      };
+      child.stdout.on('data', (c) => { stdout = append(stdout, c); });
+      child.stderr.on('data', (c) => { stderr = append(stderr, c); });
+      const timer = setTimeout(() => { timedOut = true; killProcessTree(child); }, timeout);
+      const done = (code) => {
+        if (finished) return;
+        finished = true;
+        clearTimeout(timer);
+        runningProcs.delete(child);
         resolve({
           id, type: 'result',
           payload: {
             command: cmd,
-            exit_code: err ? (err.code || 1) : 0,
+            exit_code: typeof code === 'number' ? code : 1,
             stdout: stdout.trim(),
-            stderr: stderr.trim()
+            stderr: stderr.trim(),
+            ...(child.__wbCancelled ? { cancelled: true } : {}),
+            ...(timedOut ? { timed_out: true } : {}),
+            ...(overflow ? { output_truncated: true } : {})
           }
         });
-      });
+      };
+      child.on('error', (err) => { stderr += (stderr ? '\n' : '') + err.message; done(1); });
+      child.on('close', (code) => done(code));
+      runningProcs.add(child);
     });
+  },
+
+  // Used by the extension's Stop button: kills every run_command that is still running
+  cancel_running: (payload, id) => {
+    let n = 0;
+    for (const child of runningProcs) {
+      child.__wbCancelled = true;
+      killProcessTree(child);
+      n++;
+    }
+    return { id, type: 'result', payload: { cancelled: n } };
   }
 };
 

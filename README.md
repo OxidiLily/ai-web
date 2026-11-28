@@ -1,6 +1,6 @@
 # WebBridge - AI File Connector
 
-Koneksi AI chat web (ChatGPT, Claude, Gemini, DeepSeek, Grok) ke file lokal via browser extension + local bridge server.
+Koneksi AI chat web (Claude, Qwen, dan DeepSeek) ke file lokal via browser extension + local bridge server.
 
 ## Arsitektur
 
@@ -47,7 +47,7 @@ Fallback: masukkan path workspace dari popup WebBridge jika tidak memakai compan
 
 ### 4. Gunakan
 
-- Buka ChatGPT / Claude / Gemini / DeepSeek / Grok
+- Buka Claude, Qwen, atau DeepSeek
 - Klik tombol 🔗 (kanan bawah) untuk mengaktifkan sesi WebBridge
 - Chat seperti biasa: minta AI membaca, menulis, mengedit, atau mencari file di workspace kamu
 - WebBridge akan mengeksekusi perintah file tool secara otomatis di latar belakang dan AI akan membalas dengan jawaban final
@@ -66,6 +66,8 @@ Fallback: masukkan path workspace dari popup WebBridge jika tidak memakai compan
 | File info & tree listing | ✅ |
 | Automated Agent tool execution | ✅ |
 | Workspace sandbox & security | ✅ |
+| Countdown cooldown / rate limit / jeda kirim (realtime, 50 ms) | ✅ |
+| Tombol ⏹ Stop untuk menghentikan agent | ✅ |
 
 ## Security
 
@@ -76,10 +78,19 @@ Fallback: masukkan path workspace dari popup WebBridge jika tidak memakai compan
 - Max file size 10MB
 - Max WebSocket payload 128MB
 
+## Tombol Stop
+
+Saat agent berjalan, tombol **⏹ Stop** muncul di status bar (kanan bawah). Jika salah memberi perintah, klik Stop lalu ketik perintah baru di chat. Stop akan:
+
+1. membatalkan hitung mundur dan tool call yang sedang ditunggu,
+2. membunuh `run_command` yang masih berjalan di bridge server,
+3. menekan tombol stop bawaan AI (Claude/Qwen/DeepSeek) agar AI berhenti menjawab,
+4. menandai jawaban yang terpotong sebagai "sudah ditangani" sehingga tool call setengah jadi tidak dieksekusi.
+
+Tool file yang sudah terkirim ke server (mis. `write_file`) berjalan sangat cepat dan tetap selesai; yang dibatalkan adalah langkah-langkah berikutnya.
+
 ## Supported AI Sites
 
-- ChatGPT (chatgpt.com)
 - Claude (claude.ai)
-- Gemini (gemini.google.com)
+- Qwen (chat.qwen.ai, chat.qwenlm.ai, tongyi.aliyun.com)
 - DeepSeek (chat.deepseek.com)
-- Grok (grok.com)
